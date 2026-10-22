@@ -72,6 +72,8 @@ export default function App() {
   const engine = useRef<AudioEngine | null>(null)
   const tracksRef = useRef<Track[]>([])
   const indexRef = useRef(0)
+  // Keep the user's play intent when replacing a track; ended media is already paused.
+  const resumeAfterChangeRef = useRef(false)
   const track = tracks[currentIndex]
   tracksRef.current = tracks
   indexRef.current = currentIndex
@@ -127,6 +129,7 @@ export default function App() {
   const goTrack = useCallback((direction: number, forcedIndex?: number) => {
     const total = tracksRef.current.length
     if (!total) return
+    resumeAfterChangeRef.current = resumeAfterChangeRef.current || Boolean(audioRef.current && !audioRef.current.paused)
     setCurrentIndex(index => {
       if (forcedIndex !== undefined) return Math.max(0, Math.min(total - 1, forcedIndex))
       if (shuffle && total > 1) {
@@ -140,17 +143,27 @@ export default function App() {
   const onEnded = () => {
     const audio = audioRef.current
     if (repeat === 'one' && audio) { audio.currentTime = 0; void audio.play().catch(() => setPlaying(false)); return }
-    if (tracks.length > 1 && (repeat === 'all' || shuffle || currentIndex < tracks.length - 1)) goTrack(1)
+    if (tracks.length > 1 && (repeat === 'all' || shuffle || currentIndex < tracks.length - 1)) {
+      resumeAfterChangeRef.current = true
+      goTrack(1)
+    }
     else setPlaying(false)
   }
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
     if (!track) { audio.removeAttribute('src'); audio.load(); return }
+    const resume = resumeAfterChangeRef.current
+    resumeAfterChangeRef.current = false
     audio.src = track.url
     audio.load()
     setDuration(0); setTime(0)
-    if (playing) { void engine.current?.unlock().then(() => audio.play()).catch(error => { setPlaying(false); setNotice(errorMessage(error)) }) }
+    if (resume) {
+      void Promise.resolve(engine.current?.unlock()).then(() => audio.play()).catch(error => {
+        setPlaying(false)
+        setNotice('Unable to play the selected track: ' + errorMessage(error))
+      })
+    }
   // Switching tracks should use current playback preference.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track?.id])
@@ -192,6 +205,32 @@ export default function App() {
     const newName = window.prompt('Rename custom preset:', profile.name)?.trim().slice(0, 32)
     if (newName) setCustom(old => old.map(item => item.id === profile.id ? { ...item, name: newName } : item))
   }
+  const selectTrack = (index: number) => {
+    if (index === currentIndex) {
+      if (audioRef.current?.paused) void togglePlay()
+      return
+    }
+    resumeAfterChangeRef.current = true
+    goTrack(0, index)
+  }
+  const removeTrack = (id: number) => {
+    const index = tracks.findIndex(item => item.id === id)
+    if (index < 0) return
+    const item = tracks[index]
+    if (index === currentIndex) {
+      resumeAfterChangeRef.current = tracks.length > 1 && Boolean(audioRef.current && !audioRef.current.paused)
+      if (tracks.length === 1) {
+        audioRef.current?.pause()
+        setPlaying(false)
+      }
+      setCurrentIndex(previous => Math.min(previous, tracks.length - 2) < 0 ? 0 : Math.min(previous, tracks.length - 2))
+    } else if (index < currentIndex) {
+      setCurrentIndex(previous => Math.max(0, previous - 1))
+    }
+    setTracks(previous => previous.filter(candidate => candidate.id !== id))
+    // The selected <audio> element will be redirected on the next render.
+    URL.revokeObjectURL(item.url)
+  }
   const demoGesture = (index: number) => {
     if (index === 0) void togglePlay()
     if (index === 1) goTrack(1)
@@ -231,7 +270,7 @@ export default function App() {
           {tab === 'SOUND' && <div className="screen"><div className="eyebrow">02 / SOUND LAB <span className="slash">///</span> REAL-TIME WEB AUDIO</div><div className="page-title"><h1>FEEL THE <em>BEAT.</em></h1><span className="handwritten">Tune your movement.</span></div><div className="sound-layout"><section className="panel equalizer-panel"><div className="section-heading"><span>01 — 5-BAND EQUALIZER</span><LineButton title={sound.eqEnabled ? 'Bypass EQ' : 'Enable EQ'} onClick={() => updateSound({ eqEnabled: !sound.eqEnabled })}>{sound.eqEnabled ? 'EQ ON' : 'EQ BYPASS'}</LineButton></div><div className="eq-visual"><Visualizer analyser={engine.current?.analyser ?? null} playing={playing} /></div><div className={'eq-bands ' + (!sound.eqEnabled ? 'disabled-eq' : '')}>{FREQUENCIES.map((hz, index) => <div className="eq-band" key={hz}><span className="eq-value">{sound.eq[index] > 0 ? '+' : ''}{sound.eq[index]} dB</span><input type="range" aria-label={hz + ' hertz equalizer gain'} min="-12" max="12" step="1" value={sound.eq[index]} onChange={e => { const eq = [...sound.eq] as SoundSettings['eq']; eq[index] = Number(e.currentTarget.value); updateSound({ eq }) }} /><b>{hz}</b><small>HZ</small></div>)}</div><div className="row-actions"><button className="subtle-button" type="button" onClick={() => updateSound({ eq: [0, 0, 0, 0, 0] })}><RotateCcw size={15} /> RESET EQ</button><button className="subtle-button" type="button" onClick={() => setTab('PRESETS')}><Save size={15} /> SAVE PRESET ↗</button></div></section>
             <section className="sound-sidebar"><div className="panel sound-settings"><div className="section-heading"><span>02 — DRIVE THE SOUND</span><Waves size={17} /></div><SlideControl label="VOLUME — APP ONLY" value={Math.round((muted ? 0 : volume) * 100)} min={0} max={100} suffix="%" onChange={n => { setMuted(false); setVolume(n / 100) }} /><button type="button" className="toggle-line" onClick={() => setMuted(!muted)}>{muted ? <VolumeX size={21} /> : <Volume2 size={21} />} {muted ? 'UNMUTE' : 'MUTE'} <span>{muted ? 'OFF' : 'ON'}</span></button><button type="button" className="toggle-line" onClick={() => updateSound({ bassEnabled: !sound.bassEnabled })}><Waves size={21} /> BASS BOOST <span>{sound.bassEnabled ? 'ON' : 'OFF'}</span></button><SlideControl label="BASS INTENSITY" min={0} max={12} value={sound.bass} suffix=" dB" onChange={bass => updateSound({ bass, bassEnabled: true })} /><SlideControl label="PUNCH / DYNAMICS" min={0} max={100} value={sound.punch} suffix="%" onChange={punch => updateSound({ punch })} /></div><div className="panel player-panel"><div className="section-heading">03 — YOUR PLAYER</div>{player}</div></section></div><p className="disclaimer">All EQ, bass and volume changes affect only audio played inside MOT-RHEAD. System-wide audio and third-party apps cannot be processed by this web app.</p></div>}
           {tab === 'PRESETS' && <div className="screen"><div className="eyebrow">03 / SOUND PROFILES <span className="slash">///</span> YOUR CITY. YOUR FREQUENCY.</div><div className="page-title"><h1>DIFFERENT STREETS.<br /><em>SAME SOUND.</em></h1><span className="handwritten">Choose your energy.</span></div><div className="preset-grid">{FACTORY_PRESETS.map((preset, i) => <button type="button" key={preset.id} onClick={() => choosePreset(preset)} className={'preset-card preset-' + preset.id + ' ' + (activePreset === preset.id ? 'active' : '')}><span className="preset-count">0{i + 1} / AUDIO PROFILE {activePreset === preset.id && <Check size={19} />}</span><span className="preset-art" aria-hidden="true">{['S', 'B', 'C', 'X'][i]}</span><strong>{preset.name}</strong><small>{preset.description}</small><span className="preset-cta">{activePreset === preset.id ? 'ACTIVE PROFILE' : 'LOAD PROFILE'} ↗</span></button>)}</div><div className="panel custom-panel"><div className="section-heading">05 — CUSTOM PROFILES <span>{custom.length} SAVED</span></div><p>Save the current EQ, bass and punch settings. Profiles stay in this browser.</p><form className="save-form" onSubmit={e => { e.preventDefault(); saveCustom() }}><input aria-label="Custom preset name" maxLength={32} placeholder="NAME YOUR SOUND" value={presetName} onChange={e => setPresetName(e.target.value)} /><button type="submit" className="dark-button"><Plus size={16} /> SAVE CURRENT SOUND</button></form>{custom.length > 0 && <div className="custom-list">{custom.map(preset => <div className="custom-item" key={preset.id}><button type="button" className="profile-select" onClick={() => choosePreset(preset)}><Disc3 size={18} /> {preset.name}{activePreset === preset.id && <Check size={17} />}</button><button type="button" aria-label={'Rename ' + preset.name} onClick={() => renamePreset(preset)}><Settings2 size={18} /></button><button type="button" aria-label={'Delete ' + preset.name} onClick={() => setCustom(old => old.filter(item => item.id !== preset.id))}><Trash2 size={17} /></button></div>)}</div>}<button type="button" className="subtle-button" onClick={() => { setSound(DEFAULTS); setActivePreset('custom'); setNotice('Default sound settings restored. Saved custom profiles were kept.') }}><RotateCcw size={15} /> RESTORE FLAT SOUND</button></div></div>}
-          {tab === 'CONTROLS' && <div className="screen"><div className="eyebrow">04 / CONTROL DECK <span className="slash">///</span> IN-APP GESTURE DEMO</div><div className="page-title"><h1>EVERY MOVE<br /><em>MATTERS.</em></h1><span className="handwritten">Stay in control.</span></div><div className="control-intro"><div className="control-ring"><Headphones size={85} strokeWidth={1} /><span>TOUCH / TAP / REPEAT</span></div><div className="control-copy"><h2>PLAY IT<br />YOUR WAY.</h2><p>Try each gesture below. The action controls your imported tracks inside this app. Reprogramming physical headphone buttons requires a compatible manufacturer's protocol and is not available in this version.</p><button className="white-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={16} /> IMPORT MUSIC</button></div></div><div className="gesture-grid">{GESTURES.map((gesture, index) => <div className="gesture-item" key={gesture.name}><div><span>0{index + 1}</span><h3>{gesture.name}</h3><p>{gesture.action}</p><small>{gesture.detail}</small></div><button type="button" aria-label={'Try ' + gesture.name} onClick={() => demoGesture(index)}>TRY ACTION <ChevronRight size={17} /></button></div>)}</div><div className="panel"><div className="section-heading">LOCAL PLAYLIST <span>{tracks.length} TRACKS</span></div><div className="playlist">{tracks.length === 0 ? <p>No music imported yet. Select audio from your device to get started.</p> : tracks.map((item, index) => <div className={'playlist-row ' + (currentIndex === index ? 'playing-row' : '')} key={item.id}><button type="button" onClick={() => { goTrack(0, index); if (!playing) setPlaying(true) }}><span>{String(index + 1).padStart(2, '0')}</span><b>{item.name}</b><small>{item.artist}</small></button><button type="button" title={'Remove ' + item.name} onClick={() => { URL.revokeObjectURL(item.url); setTracks(old => old.filter(x => x.id !== item.id)); setCurrentIndex(x => Math.max(0, Math.min(x, tracks.length - 2))) }}><X size={17} /></button></div>)}</div><button className="subtle-button" type="button" onClick={() => inputRef.current?.click()}><Plus size={16} /> ADD TRACKS</button></div></div>}
+          {tab === 'CONTROLS' && <div className="screen"><div className="eyebrow">04 / CONTROL DECK <span className="slash">///</span> IN-APP GESTURE DEMO</div><div className="page-title"><h1>EVERY MOVE<br /><em>MATTERS.</em></h1><span className="handwritten">Stay in control.</span></div><div className="control-intro"><div className="control-ring"><Headphones size={85} strokeWidth={1} /><span>TOUCH / TAP / REPEAT</span></div><div className="control-copy"><h2>PLAY IT<br />YOUR WAY.</h2><p>Try each gesture below. The action controls your imported tracks inside this app. Reprogramming physical headphone buttons requires a compatible manufacturer's protocol and is not available in this version.</p><button className="white-button" type="button" onClick={() => inputRef.current?.click()}><Upload size={16} /> IMPORT MUSIC</button></div></div><div className="gesture-grid">{GESTURES.map((gesture, index) => <div className="gesture-item" key={gesture.name}><div><span>0{index + 1}</span><h3>{gesture.name}</h3><p>{gesture.action}</p><small>{gesture.detail}</small></div><button type="button" aria-label={'Try ' + gesture.name} onClick={() => demoGesture(index)}>TRY ACTION <ChevronRight size={17} /></button></div>)}</div><div className="panel"><div className="section-heading">LOCAL PLAYLIST <span>{tracks.length} TRACKS</span></div><div className="playlist">{tracks.length === 0 ? <p>No music imported yet. Select audio from your device to get started.</p> : tracks.map((item, index) => <div className={'playlist-row ' + (currentIndex === index ? 'playing-row' : '')} key={item.id}><button type="button" onClick={() => selectTrack(index)}><span>{String(index + 1).padStart(2, '0')}</span><b>{item.name}</b><small>{item.artist}</small></button><button type="button" title={'Remove ' + item.name} onClick={() => removeTrack(item.id)}><X size={17} /></button></div>)}</div><button className="subtle-button" type="button" onClick={() => inputRef.current?.click()}><Plus size={16} /> ADD TRACKS</button></div></div>}
           {tab === 'MORE' && <div className="screen"><div className="eyebrow">05 / DEVICE & SETTINGS <span className="slash">///</span> NO FAKE HARDWARE CONTROL</div><div className="page-title"><h1>NO <em>LIMITS.</em><br />JUST THE TRUTH.</h1><span className="handwritten">Built for your sound.</span></div><div className="more-grid"><section className="panel"><div className="section-heading"><span>01 — CONNECTION</span><Bluetooth size={19} /></div><h2>{ble?.name || 'BLUETOOTH AUDIO'}</h2><p>{hasWebBluetooth() ? 'This browser supports requesting BLE GATT devices. An ordinary Bluetooth audio connection is handled in your operating system.' : 'This browser does not support standard Web Bluetooth BLE discovery. On iPhone, pair headphones in iOS Settings → Bluetooth.'}</p><div className="info-row"><span>WEB BLUETOOTH API</span><strong>{hasWebBluetooth() ? 'AVAILABLE' : 'NOT AVAILABLE'}</strong></div><div className="info-row"><span>BLE GATT SESSION</span><strong>{ble ? 'CONNECTED' : 'DISCONNECTED'}</strong></div><div className="info-row"><span>BATTERY SERVICE</span><strong>{ble?.battery == null ? 'NOT EXPOSED' : ble.battery + '%'}</strong></div><button type="button" className="dark-button" disabled={!ble && (!hasWebBluetooth() || connecting)} onClick={ble ? disconnect : connect}>{ble ? 'DISCONNECT BLE' : connecting ? 'CONNECTING...' : 'REQUEST BLE DEVICE'}</button></section><section className="panel"><div className="section-heading">02 — AUDIO ENGINE <AudioLines size={19} /></div><h2>WEB AUDIO DSP</h2><p>Five-band parametric EQ, low-shelf bass, dynamics compression, and an accurate spectrum analyser.</p><div className="info-row"><span>LOCAL TRACKS</span><strong>{tracks.length}</strong></div><div className="info-row"><span>LOCAL PRESETS</span><strong>{custom.length}</strong></div><div className="info-row"><span>OUTPUT ROUTING</span><strong>SYSTEM CONTROLLED</strong></div><button type="button" className="dark-button" onClick={() => setTab('SOUND')}>OPEN SOUND LAB ↗</button></section><section className="panel"><div className="section-heading">03 — COMPATIBILITY <CircleHelp size={19} /></div><h2>WHAT WORKS?</h2><p><b>Works:</b> local music player, EQ, bass, volume, punch, custom presets, and real visualizer. BLE GATT discovery and battery readings may work on supported Chromium browsers and devices.</p><p><b>Not available:</b> system-wide equalization, manufacturer ANC/transparency modes, Bluetooth Classic pairing, hardware volume/gesture remapping, or control of Spotify/Apple Music/YouTube.</p><button type="button" className="subtle-button" onClick={() => setHelpOpen(!helpOpen)}>{helpOpen ? 'HIDE DETAILS' : 'WHY THESE LIMITS?'} <ChevronRight size={16} /></button>{helpOpen && <p className="help-text">Browsers cannot intercept other apps' audio or access most proprietary headset command channels. iOS Safari does not expose the standard Web Bluetooth API. Your phone's system Bluetooth settings remain responsible for connecting Bluetooth headphones. Any supported BLE battery value is read from a real GATT service, never guessed.</p>}</section><section className="panel"><div className="section-heading">04 — YOUR SETUP <Download size={19} /></div><h2>INSTALL THE EXPERIENCE.</h2><p>Add MOT-RHEAD to your Home Screen from your browser share/menu button. Once installed, the app shell can reopen offline; audio files must be imported again after a reload.</p><p>Custom presets and sound settings are stored in this browser's local storage. Files never upload to a server.</p><button type="button" className="subtle-button" onClick={() => { setSound(DEFAULTS); setActivePreset('custom'); setVolume(0.8); setMuted(false); setNotice('Sound controls reset to defaults; your custom presets remain saved.') }}><RotateCcw size={16} /> RESET SOUND SETTINGS</button></section></div><footer className="brand-footer"><Logo /><span>OWN THE NOISE — ORIGINAL CONCEPT. <br /> CREATED BY AMIR SAEID DEHGHAN.</span></footer></div>}
         </main>
       </div>
