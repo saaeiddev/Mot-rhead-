@@ -1,0 +1,20 @@
+{
+  "name": "MOT-RHEAD — Own The Noise",
+  "short_name": "MOT-RHEAD",
+  "description": "Urban headphone sound studio with in-app DSP, EQ and local audio playback",
+  "id": "/Mot-rhead-/",
+  "start_url": "/Mot-rhead-/",
+  "scope": "/Mot-rhead-/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#101010",
+  "theme_color": "#101010",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
