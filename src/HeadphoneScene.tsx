@@ -9,7 +9,7 @@ function Headset() {
     if (dragging) setAngle(previous => Math.max(-0.75, Math.min(0.75, previous + event.movementX * 0.007)))
   }
   return (
-    <group rotation={[0.08, angle, -0.12]} scale={1.15} onPointerDown={event => { setDragging(true); event.target.setPointerCapture(event.pointerId) }} onPointerUp={event => { setDragging(false); event.target.releasePointerCapture(event.pointerId) }} onPointerMove={move}>
+    <group rotation={[0.08, angle, -0.12]} scale={1.15} onPointerDown={event => { setDragging(true); void event }} onPointerUp={event => { setDragging(false); void event }} onPointerMove={move} onPointerOut={() => setDragging(false)}>
       <mesh position={[0, 0.25, 0]}>
         <torusGeometry args={[1.12, 0.14, 16, 72, Math.PI]} />
         <meshPhysicalMaterial color="#111111" roughness={0.55} metalness={0.25} />
