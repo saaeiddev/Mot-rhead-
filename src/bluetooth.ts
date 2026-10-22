@@ -7,7 +7,7 @@ type BleApi = { requestDevice(options: { acceptAllDevices: true; optionalService
 export type ConnectionInfo = { device: BleDevice; battery: number | null; name: string }
 export function hasWebBluetooth() { return typeof navigator !== 'undefined' && 'bluetooth' in navigator && Boolean((navigator as Navigator & { bluetooth?: BleApi }).bluetooth) }
 export async function connectBle(): Promise<ConnectionInfo> {
-  const api = (navigator as Navigator & { bluetooth?: BleApi }).bluetooth
+  const api = typeof navigator === 'undefined' ? undefined : (navigator as Navigator & { bluetooth?: BleApi }).bluetooth
   if (!api) throw new Error('Web Bluetooth is unavailable in this browser. Audio pairing stays in device settings.')
   const device = await api.requestDevice({ acceptAllDevices: true, optionalServices: ['battery_service'] })
   if (!device.gatt) throw new Error('This device does not expose BLE GATT services.')
