@@ -2,7 +2,7 @@
 
 A responsive, monochrome, hip-hop/streetwear-inspired **headphone sound studio** for local music playback, live five-band Web Audio equalization, bass boost, punch/dynamics, and a real audio spectrum analyzer.
 
-**Status:** development branch / ready for CI verification. Bluetooth capabilities are explicitly constrained to real BLE GATT services. No fake headphones or battery stats are shown.
+**Status:** implementation on feature branch; automated production build and unit tests run in GitHub Actions. Device-specific hardware and real mobile-browser acceptance testing remain necessary. Bluetooth capabilities are explicitly constrained to real BLE GATT services. No fake headphones or battery stats are shown.
 
 ## Features
 - Five pages: **HOME**, **SOUND**, **PRESETS**, **CONTROLS**, **MORE**
@@ -12,7 +12,7 @@ A responsive, monochrome, hip-hop/streetwear-inspired **headphone sound studio**
 - Four built-in EQ profiles: STREET, BASS, CHILL, BATTLE
 - Save, load, rename, delete custom presets (local browser storage)
 - Spectrum visualizer based on AnalyserNode (not canned animation)
-- BLE discovery on compatible browsers, actual GATT battery reads when service is available
+- BLE discovery on compatible browsers, actual GATT battery reads when service is available; no manufacturer-specific hardware controls
 - Installable PWA with offline app shell, responsive mobile bottom navigation and reduced-motion CSS
 - Real in-app gesture demo; hardware gesture editing not falsely offered
 
@@ -25,25 +25,25 @@ A real-device adapter can be implemented later for a specific model if documente
 
 Requires Node.js 22+ and npm.
 
-\`\`\`bash
+```bash
 npm install
 npm run dev
-\`\`\`
+```
 
 Open the local Vite URL shown in the terminal.
 
 ## Validate and build
 
-\`\`\`bash
+```bash
 npm run build
 npm test
 npm run preview
-\`\`\`
+```
 
-The GitHub Actions CI workflow installs dependencies, compiles a production bundle, and runs tests on pushes to the development branch and pull requests. A separate Pages workflow is configured for \`main\`. It deploys only after the verified branch is merged and the repository's Pages settings are enabled for **GitHub Actions**.
+The GitHub Actions CI workflow installs dependencies, compiles a production bundle, and runs unit tests (presets, Web Audio routing and BLE behavior) on pushes to the development branch and pull requests. These unit tests use browser API mocks; they do not replace listening tests or physical-device verification. A separate Pages workflow is configured for `main`. It deploys only after the verified branch is merged and the repository's Pages settings are enabled for **GitHub Actions**.
 
 ## GitHub Pages
-The application uses \`/Mot-rhead-/\` as its Vite and service-worker base path. Intended deployment URL:
+The application uses `/Mot-rhead-/` as its Vite and service-worker base path. Intended deployment URL:
 
 https://saaeiddev.github.io/Mot-rhead-/
 
