@@ -54,6 +54,19 @@ describe("honest BLE states", () => {
     expect(states.at(-1)?.phase).toBe("connected");
     expect(states.at(-1)?.battery).toBe(null);
   });
+  it("explains blocked Bluetooth permission without claiming a connection", async () => {
+    vi.stubGlobal("navigator", {
+      bluetooth: {
+        requestDevice: () =>
+          Promise.reject(new DOMException("blocked", "SecurityError")),
+      },
+    });
+    const states: DeviceStatus[] = [];
+    await new BatteryAdapter((s) => states.push(s)).select();
+    expect(states.at(-1)?.phase).toBe("error");
+    expect(states.at(-1)?.message).toContain("site permissions");
+    expect(states.some((s) => s.phase === "connected")).toBe(false);
+  });
   it("reads actual battery notifications and clears state on disconnect", async () => {
     const { device, characteristic } = mockDevice(72);
     const states: DeviceStatus[] = [];

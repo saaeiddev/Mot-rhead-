@@ -1,5 +1,69 @@
 import { test, expect } from "@playwright/test";
 import path from "node:path";
+test("unsupported Bluetooth opens actionable guidance from both connection buttons", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "bluetooth", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await page.goto("./");
+  await page
+    .getByRole("button", { name: "CONNECT HEADPHONES", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "CONNECT YOUR HEADPHONES." });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("status")).toContainText(
+    "Bluetooth device access unavailable",
+  );
+  await expect(dialog).toContainText("Bluetooth settings");
+  await expect(dialog).toContainText("audio output");
+  await expect(dialog).not.toContainText("BLE connected:");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await dialog.getByRole("button", { name: "BACK TO MY MUSIC" }).click();
+  await expect(dialog).not.toBeVisible();
+  await page.goto("./#more");
+  await page
+    .getByRole("button", { name: "CONNECTION GUIDE", exact: true })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText(
+    "Bluetooth device access unavailable",
+  );
+});
+test("cancelled BLE chooser remains visible and can be retried", async ({
+  page,
+}) => {
+  // Only the permission chooser is mocked; no real hardware connection is claimed.
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "bluetooth", {
+      configurable: true,
+      value: {
+        requestDevice: () => {
+          if (!navigator.userActivation.isActive)
+            throw new Error("Missing user activation");
+          return Promise.reject(new DOMException("cancel", "NotFoundError"));
+        },
+      },
+    });
+  });
+  await page.goto("./");
+  await page
+    .getByRole("button", { name: "CONNECT BLE DEVICE", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "CONNECT YOUR HEADPHONES." });
+  await expect(dialog.getByRole("status")).toContainText("No device selected");
+  await expect(dialog).not.toContainText("BLE connected:");
+  await dialog
+    .getByRole("button", { name: "TRY BLE CONNECTION AGAIN" })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText("No device selected");
+});
 test("navigation, mobile layout, presets and import persistence", async ({
   page,
 }) => {

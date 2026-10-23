@@ -61,7 +61,7 @@ export class BatteryAdapter implements HeadphoneAdapter {
     this.device = null;
   }
   async select() {
-    if (!navigator.bluetooth) {
+    if (typeof navigator.bluetooth?.requestDevice !== "function") {
       this.update({
         phase: "error",
         message:
@@ -87,10 +87,14 @@ export class BatteryAdapter implements HeadphoneAdapter {
         battery: null,
         message:
           error instanceof DOMException && error.name === "NotFoundError"
-            ? "Device selection cancelled. You can keep using the music player."
-            : error instanceof Error
-              ? error.message
-              : "Could not connect to this device.",
+            ? "No device selected, or device selection cancelled. Make sure Bluetooth is on and the BLE device is discoverable, then try again. You can keep using the music player."
+            : error instanceof DOMException &&
+                (error.name === "SecurityError" ||
+                  error.name === "NotAllowedError")
+              ? "Bluetooth access was blocked. Open this HTTPS site directly in a supported browser and check its Bluetooth site permissions, then try again. Audio pairing remains in system settings."
+              : error instanceof Error
+                ? error.message
+                : "Could not connect to this device.",
       });
     }
   }

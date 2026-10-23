@@ -56,6 +56,8 @@ Existing v0.1 sound settings and custom presets migrate automatically on first u
 
 Real-device mode means **a successful GATT connection**, not confirmation of the audio output route. No battery percentage or connection success is simulated. The concept device in Home is explicitly labeled. Generic BLE selection cannot control arbitrary Bluetooth Classic headphones.
 
+Both connection buttons open a visible status dialog. Unsupported browsers show system-pairing steps; supported browsers launch the BLE chooser directly from the click. Cancellation and blocked permissions remain visible with retry guidance. The site cannot open system Bluetooth settings. This behavior is covered by desktop/mobile browser regression tests with an absent API and a mocked cancelled chooser; these tests do not verify physical hardware.
+
 ### Adapter architecture
 
 `src/bluetooth/adapter.ts` defines `HeadphoneAdapter` and a standard `BatteryAdapter`. Add a model-specific adapter only after obtaining documented service/characteristic UUIDs, command payloads and safe device-matching rules. It must report discovered capabilities, handle disconnects, and never infer ANC or remapping support from a battery service. Current generic integration implements chooser cancellation, errors, a 15-second connection timeout, notification cleanup and late-connection cancellation.

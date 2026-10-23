@@ -1775,6 +1775,34 @@ details p {
   font-size: 9px;
   margin-bottom: 0;
 }
+.connection-notice {
+  padding: 16px;
+  margin: 20px 0;
+  border: 1px solid #626262;
+  border-radius: 8px;
+  background: #232323;
+  overflow-wrap: anywhere;
+}
+.connection-notice strong {
+  font-size: 14px;
+}
+.connection-notice p {
+  margin: 10px 0 0;
+  color: #d0d0d0;
+}
+.connection-steps {
+  margin: 14px 0 18px;
+  padding-left: 22px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #ccc;
+}
+.connection-steps li + li {
+  margin-top: 8px;
+}
+.connection-done {
+  margin-top: 16px;
+}
 .field-label {
   display: block;
   font-size: 10px;

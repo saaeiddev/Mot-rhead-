@@ -192,7 +192,7 @@ export default function App() {
   const [adapter] = useState(() => new BatteryAdapter(setDevice));
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [modal, setModal] = useState<
-    "save" | "rename" | "install" | "restore" | null
+    "save" | "rename" | "install" | "restore" | "connection" | null
   >(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -336,6 +336,14 @@ export default function App() {
   const connected = device.phase === "connected";
   const connecting =
     device.phase === "connecting" || device.phase === "selecting";
+  const bluetoothAvailable =
+    typeof navigator.bluetooth?.requestDevice === "function";
+  const connectDevice = () => {
+    setModal("connection");
+    // Keep the chooser in the click handler so browser user activation is retained.
+    if (connected) adapter.disconnect();
+    else void adapter.select();
+  };
   const performHold = () => {
     if (holdAction === "mute") patch({ muted: !sound.muted });
     else if (holdAction === "bass")
@@ -547,9 +555,7 @@ export default function App() {
                     <button
                       className="button white full"
                       disabled={connecting}
-                      onClick={() =>
-                        connected ? adapter.disconnect() : void adapter.select()
-                      }
+                      onClick={connectDevice}
                     >
                       {connecting ? (
                         <LoaderCircle className="spin" size={16} />
@@ -560,13 +566,15 @@ export default function App() {
                         ? "CONNECTING…"
                         : connected
                           ? "DISCONNECT BLE"
-                          : "CONNECT BLE DEVICE"}{" "}
+                          : bluetoothAvailable
+                            ? "CONNECT BLE DEVICE"
+                            : "CONNECT HEADPHONES"}{" "}
                       {!connecting && <ArrowUpRight size={17} />}
                     </button>
                     <small>
-                      {navigator.bluetooth
+                      {bluetoothAvailable
                         ? "Optional · compatible BLE devices only"
-                        : "Web Bluetooth unavailable · use system settings"}
+                        : "Connection guide · pair audio in system settings"}
                     </small>
                   </section>
                   <section className="rotation-card">
@@ -1186,7 +1194,7 @@ export default function App() {
                   <div className="detail-row">
                     <span>Web Bluetooth</span>
                     <strong>
-                      {navigator.bluetooth ? "API available" : "Unavailable"}
+                      {bluetoothAvailable ? "API available" : "Unavailable"}
                     </strong>
                   </div>
                   <div className="detail-row">
@@ -1208,16 +1216,16 @@ export default function App() {
                   <button
                     className="button white full"
                     disabled={connecting}
-                    onClick={() =>
-                      connected ? adapter.disconnect() : void adapter.select()
-                    }
+                    onClick={connectDevice}
                   >
                     <Bluetooth size={16} />
                     {connecting
                       ? "CONNECTING…"
                       : connected
                         ? "DISCONNECT BLE"
-                        : "SELECT BLE DEVICE"}
+                        : bluetoothAvailable
+                          ? "SELECT BLE DEVICE"
+                          : "CONNECTION GUIDE"}
                   </button>
                   <p className="hint">
                     Bluetooth audio pairing and output selection belong to your
@@ -1490,6 +1498,9 @@ export default function App() {
           if (e.target === e.currentTarget) closeDialog();
         }}
         className="modal"
+        aria-labelledby={
+          modal === "connection" ? "connection-title" : undefined
+        }
       >
         <div className="modal-content">
           <button
@@ -1660,6 +1671,86 @@ export default function App() {
                 <Save size={16} /> SAVE PRESET
               </button>
             </form>
+          ) : modal === "connection" ? (
+            <>
+              <span className="eyebrow">YOUR HEADPHONES. YOUR SOUND.</span>
+              <h2 id="connection-title">CONNECT YOUR HEADPHONES.</h2>
+              <div
+                className="connection-notice"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <strong>
+                  {connecting
+                    ? device.phase === "selecting"
+                      ? "Choose a device in your browser"
+                      : "Connecting to your device…"
+                    : connected
+                      ? `BLE connected: ${device.name}`
+                      : bluetoothAvailable
+                        ? "Device connection"
+                        : "Bluetooth device access unavailable"}
+                </strong>
+                <p>{device.message}</p>
+                {connected && device.battery !== null && (
+                  <p>Device battery: {device.battery}%</p>
+                )}
+              </div>
+              <h3>FOR MUSIC PLAYBACK</h3>
+              <ol className="connection-steps">
+                <li>
+                  Open your phone or computer’s{" "}
+                  <strong>Bluetooth settings</strong>.
+                </li>
+                <li>
+                  Pair your headphones, then choose them as the{" "}
+                  <strong>audio output</strong>.
+                </li>
+                <li>
+                  Return here and play an imported track or the demo beat.
+                </li>
+              </ol>
+              <p>
+                The website cannot open system Bluetooth settings or pair the
+                audio output for you.
+              </p>
+              {bluetoothAvailable ? (
+                <>
+                  <p>
+                    Optional BLE access can read battery information from
+                    compatible devices. It does not route music or enable
+                    manufacturer controls.
+                  </p>
+                  <button
+                    className="button outline full"
+                    disabled={connecting}
+                    onClick={connectDevice}
+                  >
+                    <Bluetooth size={16} />
+                    {connecting
+                      ? "WAITING FOR DEVICE…"
+                      : connected
+                        ? "DISCONNECT BLE"
+                        : "TRY BLE CONNECTION AGAIN"}
+                  </button>
+                </>
+              ) : (
+                <p>
+                  For optional BLE device access, open the site directly in a
+                  supported browser such as Chrome on Android, Windows or Mac.
+                  iPhone and iPad browsers do not provide standard Web
+                  Bluetooth. Music playback still works through your system
+                  audio output.
+                </p>
+              )}
+              <button
+                className="button white full connection-done"
+                onClick={closeDialog}
+              >
+                BACK TO MY MUSIC
+              </button>
+            </>
           ) : modal === "install" ? (
             <>
               <Download size={30} />
