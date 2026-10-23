@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>MOT-RHEAD Responsive QA</title
+  ><style>
+    body {
+      margin: 0;
+      background: #333;
+      color: white;
+      font: 14px system-ui;
+    }
+    header {
+      height: 65px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+    }
+    iframe {
+      display: block;
+      border: 0;
+      margin: auto;
+      width: 390px;
+      height: 844px;
+      box-shadow: 0 0 20px #111;
+    }
+    button {
+      padding: 9px 15px;
+    }
+  </style>
+  <header>
+    Responsive QA <button data-width="320">320 px</button
+    ><button data-width="390">390 px</button
+    ><button data-width="768">768 px</button
+    ><button data-width="1024">1024 px</button><span id="status"></span>
+  </header>
+  <iframe src="../" title="Mobile app preview"></iframe>
+  <script>
+    const f = document.querySelector("iframe");
+    document.querySelectorAll("button").forEach(
+      (b) =>
+        (b.onclick = () => {
+          f.style.width = b.dataset.width + "px";
+        }),
+    );
+    setInterval(() => {
+      try {
+        document.querySelector("#status").textContent =
+          f.contentDocument.documentElement.scrollWidth <= f.clientWidth
+            ? "PASS: no horizontal overflow"
+            : "FAIL: horizontal overflow";
+      } catch {}
+    }, 1000);
+  </script>
+</html>
