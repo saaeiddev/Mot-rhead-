@@ -16,6 +16,10 @@
 - Desktop and mobile reference layouts visually inspected. All five screens checked at 320, 768 and 1024 px iframe viewports without horizontal overflow. Tablet navigation accessible labels corrected and verified after QA.
 - Generated manifest/service worker have the repository base path; the build bundles local visual assets and fonts.
 
+## Published release
+
+GitHub Actions run 39907785521 passed all unit, production-build, and desktop/mobile Playwright checks and deployed successfully. The public HTTPS app was opened, its original demo playback advanced, and the Sound screen was visually verified. See `live-release.jpg`.
+
 ## Boundaries
 
 No physical Bluetooth headphones were connected. No native iPhone Safari, Android device, macOS Safari or hardware Media Session tests were performed. Do not interpret browser emulation as native device testing. Headphone audio routing is controlled by the OS.
