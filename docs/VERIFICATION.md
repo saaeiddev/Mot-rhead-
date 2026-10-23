@@ -27,3 +27,7 @@ No physical Bluetooth headphones were connected. No native iPhone Safari, Androi
 The cloud preview is HTTP and does not expose Web Bluetooth or a production service worker. Offline installation is configured and build-validated, but its final HTTPS behavior requires a deployed site. Browser extension metadata errors seen in the cloud browser originate from its extension, not the application.
 
 Playwright tests are included in the deployment workflow. They are a separate gate from the cloud-browser checks above; consult the GitHub Actions run for the actual CI result.
+
+## Connection feedback fix
+
+GitHub Actions run 39908679776 passed 13 unit tests, the production build and all eight desktop/mobile browser tests. New regression coverage checks visible guidance when the Bluetooth API is absent and retry after a mocked chooser cancellation. The public HTTPS Home connection button was clicked and its guidance dialog visually verified (`connection-fix.jpg`). The already-open PWA required a second reload after its service worker updated. No physical Bluetooth hardware was tested.
